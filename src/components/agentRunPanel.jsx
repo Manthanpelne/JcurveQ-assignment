@@ -1,9 +1,66 @@
 
 import { useAgentRun } from '../hooks/useAgentRun';
-import { SUCCESS_RUN } from '../data/fixtures';
+import { ERROR_RUN, SUCCESS_RUN } from '../data/fixtures';
+import TaskCard from './taskCard';
+import { useState } from 'react';
+import FinalResultView from './finalResultView';
+
+
+const getTaskLayout = (tasks) => {
+  const taskArray = Object.values(tasks);
+  const layout = [];
+  const processedIds = new Set();
+
+  taskArray.forEach((task) => {
+    if (processedIds.has(task.task_id)) return;
+
+    if (task.parallel_group) {
+      // Find all tasks in the same group
+      const group = taskArray.filter(t => t.parallel_group === task.parallel_group);
+      layout.push({ type: 'parallel', tasks: group, id: task.parallel_group });
+      group.forEach(t => processedIds.add(t.task_id));
+    } else {
+      layout.push({ type: 'sequential', task: task, id: task.task_id });
+      processedIds.add(task.task_id);
+    }
+  });
+
+  return layout;
+};
 
 export default function AgentRunPanel() {
-  const { tasks, thoughts, runInfo, finalOutput, playStream } = useAgentRun();
+  const { tasks, thoughts, runInfo, finalOutput, playStream, globalError } = useAgentRun();
+  const layout = getTaskLayout(tasks);
+
+
+  if (runInfo.status === 'idle') {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[600px] border-2 border-dashed border-slate-200 rounded-3xl bg-white m-8">
+      <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-3xl mb-4">
+        🔎
+      </div>
+      <h2 className="text-xl font-bold text-slate-800">JcurveIQ Research Terminal</h2>
+      <p className="text-slate-500 mb-8 max-w-sm text-center">
+        Select a research template to begin an orchestrated multi-agent market analysis.
+      </p>
+      <div className="flex gap-4">
+        <button 
+          onClick={() => playStream(SUCCESS_RUN)}
+          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all"
+        >
+          Test Success Run
+        </button>
+        <button 
+          onClick={() => playStream(ERROR_RUN)}
+          className="bg-white border border-slate-200 text-slate-600 px-6 py-3 rounded-xl font-bold hover:bg-slate-50 transition-all"
+        >
+          Test Error Path
+        </button>
+      </div>
+    </div>
+  );
+}
+
 
   return (
     <div className="max-w-5xl mx-auto p-6 bg-slate-50 min-h-screen font-sans text-slate-900">
@@ -33,53 +90,63 @@ export default function AgentRunPanel() {
         </div>
       </header>
 
-      {/* Task Execution Area */}
-      <div className="space-y-4">
-        {Object.values(tasks).map((task) => (
-          <div key={task.task_id} className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-            <div className="p-4 flex items-center justify-between border-b border-slate-50 bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded flex items-center justify-center font-mono text-xs font-bold">
-                  {task.agent[0].toUpperCase()}
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold">{task.label}</h3>
-                  <p className="text-xs text-slate-500 font-mono">{task.agent}</p>
-                </div>
-              </div>
-              <StatusBadge status={task.status} reason={task.reason} />
-            </div>
-            
-            {/* Tool Calls & Output would go here */}
-            <div className="p-4 text-sm text-slate-600">
-              {task.toolCalls.length > 0 && (
-                <div className="mb-2 font-mono text-[11px] bg-slate-900 text-slate-300 p-2 rounded">
-                  {task.toolCalls.map((tc, i) => (
-                    <div key={i}>&gt; {tc.tool}({tc.input_summary})</div>
+<div className="grid grid-cols-12 gap-8">
+        {/* Main Execution Column */}
+        <div className="col-span-8 space-y-6">
+          {layout.map((item) => (
+            <div key={item.id} className="animate-in fade-in slide-in-from-top-2 duration-500">
+              {item.type === 'sequential' ? (
+                <TaskCard task={item.task} />
+              ) : (
+                <div className="grid grid-cols-2 gap-4 border-l-4 border-blue-200 pl-4 py-2">
+                  <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                    Parallel Execution Group: {item.id}
+                  </div>
+                  {item.tasks.map(t => (
+                    <TaskCard key={t.task_id} task={t} isSmall />
                   ))}
                 </div>
               )}
-              {task.finalContent && <p className="font-medium text-slate-800 italic">"{task.finalContent}"</p>}
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* Final Result - Prominent Bottom Section */}
-      {finalOutput && (
-        <div className="mt-12 bg-blue-900 text-white p-8 rounded-2xl shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <h2 className="text-2xl font-bold mb-4">Synthesis Result</h2>
-          <p className="text-lg leading-relaxed text-blue-50 mb-6">{finalOutput.summary}</p>
-          <div className="border-t border-blue-800 pt-4 flex gap-4">
-             {finalOutput.citations.map((c, i) => (
-               <span key={i} className="text-xs bg-blue-800 px-2 py-1 rounded">Source: {c.title}</span>
-             ))}
+        {/* Sidebar for Agent Thoughts (The "Planner's Scratchpad") */}
+        <div className="col-span-4">
+          <div className="sticky top-8 bg-slate-900 rounded-xl p-4 text-emerald-400 font-mono text-xs h-[600px] overflow-y-auto shadow-2xl border-t-4 border-slate-700">
+            <div className="mb-4 text-slate-500 border-b border-slate-800 pb-2 flex justify-between">
+              <span>AGENT_LOG.TXT</span>
+              <span className="animate-pulse">● LIVE</span>
+            </div>
+            {thoughts.map((thought, i) => (
+              <div key={i} className="mb-4 animate-in fade-in duration-300">
+                <span className="text-slate-500">[{new Date(thought.timestamp).toLocaleTimeString([], {hour12: false, minute:'2-digit', second:'2-digit'})}]</span>
+                <span className="text-blue-400 ml-2 font-bold">{thought.task_id === 'coordinator' ? 'CORDR' : 'AGENT'}:</span>
+                <p className="mt-1 text-slate-300 leading-relaxed italic">"{thought.thought}"</p>
+              </div>
+            ))}
+            {thoughts.length === 0 && <p className="text-slate-600">Awaiting internal reasoning...</p>}
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Final Output (Step 9/10) */}
+      {finalOutput && <FinalResultView output={finalOutput} />}
+
+      {globalError && (
+  <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-600 text-red-800 rounded-r-lg flex items-center gap-3 animate-bounce">
+    <span className="text-2xl">🚫</span>
+    <div>
+      <h4 className="font-bold">System Halt</h4>
+      <p className="text-sm">{globalError}</p>
     </div>
-  );
+  </div>
+)}
+    </div>
+  ); 
 }
+
+
 
 function StatusBadge({ status, reason }) {
   if (status === 'cancelled' && reason === 'sufficient_data') {

@@ -24,3 +24,16 @@ export const SUCCESS_RUN = [
   { type: "partial_output", task_id: "t_005", content: "Finalizing R&D intensity analysis...", is_final: false, timestamp: 19000 },
   { type: "run_complete", run_id: "r_001", status: "complete", output: { summary: "Apple's R&D intensity has grown to 8.0%, lagging MSFT's 12.9% but growing faster in absolute dollars.", citations: [{title: "Apple 10-K 2023"}] }, timestamp: 21000 }
 ];
+
+export const ERROR_RUN = [
+  { type: "run_started", run_id: "r_002", query: "Compare Tesla vs Ford Capital Expenditures (2023)", timestamp: 1000 },
+  { type: "agent_thought", task_id: "coordinator", thought: "Identifying primary tickers and CAPEX line items.", timestamp: 2000 },
+  { type: "task_spawned", task_id: "t_001", label: "Extract Tesla CAPEX", agent: "filing_fetcher", parallel_group: null, depends_on: [], timestamp: 3000 },
+  { type: "task_update", task_id: "t_001", status: "complete", timestamp: 5000 },
+  { type: "partial_output", task_id: "t_001", content: "Tesla 2023 CAPEX: $8.9B", is_final: true, quality_score: 0.99, timestamp: 5100 },
+  // The failure point
+  { type: "task_spawned", task_id: "t_002", label: "Extract Ford CAPEX", agent: "filing_fetcher", parallel_group: null, depends_on: [], timestamp: 6000 },
+  { type: "tool_call", task_id: "t_002", tool: "sec_edgar_search", input_summary: "ticker=F, year=2023", timestamp: 6500 },
+  { type: "task_update", task_id: "t_002", status: "failed", error: "Database Connection Timeout. Internal Error 500.", timestamp: 8000 },
+  { type: "run_error", run_id: "r_002", message: "Coordinator encountered an unrecoverable error. Partial results may be available.", timestamp: 9500 }
+];

@@ -6,6 +6,8 @@ export function useAgentRun() {
   const [thoughts, setThoughts] = useState([]);
   const [runInfo, setRunInfo] = useState({ status: 'idle', query: '', startTime: null });
   const [finalOutput, setFinalOutput] = useState(null);
+  const [globalError, setGlobalError] = useState(null);
+
   const timeouts = useRef([]);
 
   const playStream = (events) => {
@@ -74,8 +76,12 @@ export function useAgentRun() {
         setRunInfo(prev => ({ ...prev, status: 'complete' }));
         setFinalOutput(event.output);
         break;
+          case 'run_error':
+        setRunInfo(prev => ({ ...prev, status: 'failed' }));
+        setGlobalError(event.message);
+        break;
     }
   };
 
-  return { tasks, thoughts, runInfo, finalOutput, playStream };
+  return { tasks, thoughts, runInfo, finalOutput, playStream, globalError };
 }
